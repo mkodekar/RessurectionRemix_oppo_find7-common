@@ -27,7 +27,12 @@
    IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <fcntl.h>
+#include <linux/fs.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
 #include "vendor_init.h"
 #include "property_service.h"
@@ -47,10 +52,40 @@ static void import_kernel_nv(char *name, int for_emulator)
         property_set("ro.oppo.rf_version", value);
     } else if (!strcmp(name,"oppo.pcb_version")) {
         property_set("ro.oppo.pcb_version", value);
+        if (!strcmp(value, "20") ||
+                !strcmp(value, "21") ||
+                !strcmp(value, "22") ||
+                !strcmp(value, "23")) {
+            property_set("ro.sf.lcd_density", "640");
+            property_set("ro.oppo.device", "find7s");
+        } else {
+            property_set("ro.sf.lcd_density", "480");
+            property_set("ro.oppo.device", "find7a");
+        }
     }
 }
 
-void vendor_load_properties()
+static bool has_unified_layout()
+{
+  return ( access("/dev/block/platform/msm_sdcc.1/by-name/sdcard", F_OK ) == -1 );
+}
+
+static bool has_lvm()
+{
+  return ( access("/dev/lvpool/userdata", F_OK ) == 0 );
+}
+
+static void set_oppo_layout()
+{
+    if (has_lvm()||has_unified_layout()) {
+        property_set("ro.crypto.fuse_sdcard", "true");
+    } else {
+        property_set("ro.vold.primary_physical", "1");
+    }
+}
+
+void init_msm_properties(unsigned long msm_id, unsigned long msm_ver, char *board_type)
 {
     import_kernel_cmdline(0, import_kernel_nv);
+    set_oppo_layout();
 }
